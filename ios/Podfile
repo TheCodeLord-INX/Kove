@@ -25,7 +25,7 @@ end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-flutter_ios_podfile_setup_for_target_configuration(target_configuration)
+# flutter_ios_podfile_setup_for_target_configuration(target_configuration)
 
 target 'Runner' do
   use_frameworks!
