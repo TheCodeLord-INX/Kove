@@ -15,6 +15,11 @@ jobs:
           channel: 'stable'
           architecture: x64
       - run: flutter pub get
+      - run: sudo gem install cocoapods
+      - run: pod deintegrate
+        working-directory: ios
+      - run: pod install
+        working-directory: ios
       - run: pod install
         working-directory: ios
       - run: flutter build ios --release --no-codesign
