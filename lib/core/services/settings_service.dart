@@ -13,6 +13,8 @@ class SettingsService {
   static const _keyMeterCharge = 'meter_charge';
   static const _keyAuditDay = 'audit_day';
   static const _keyLastGridReading = 'last_grid_reading';
+  static const _keyGridAuditNotificationPermissionAsked =
+      'grid_audit_notification_permission_asked';
 
   bool get isDarkMode => _prefs.getBool(_keyIsDarkMode) ?? false;
   Future<void> setDarkMode(bool value) => _prefs.setBool(_keyIsDarkMode, value);
@@ -38,4 +40,9 @@ class SettingsService {
   double? get lastGridReading => _prefs.getDouble(_keyLastGridReading);
   Future<void> setLastGridReading(double value) =>
       _prefs.setDouble(_keyLastGridReading, value);
+
+  bool get gridAuditNotificationPermissionAsked =>
+      _prefs.getBool(_keyGridAuditNotificationPermissionAsked) ?? false;
+  Future<void> setGridAuditNotificationPermissionAsked(bool value) =>
+      _prefs.setBool(_keyGridAuditNotificationPermissionAsked, value);
 }

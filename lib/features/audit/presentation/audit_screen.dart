@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/in_app_notification.dart';
 import '../../billing/models/monthly_log.dart';
@@ -50,17 +51,38 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
     _gridReadingCtrl.addListener(_recalculate);
     _baselineReadingCtrl.addListener(_recalculate);
     _loadSubmeterData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestGridAuditNotificationPermissionIfNeeded();
+    });
+  }
+
+  Future<void> _requestGridAuditNotificationPermissionIfNeeded() async {
+    if (!mounted) return;
+
+    final settingsService = ref.read(settingsServiceProvider);
+    if (settingsService.gridAuditNotificationPermissionAsked) return;
+
+    try {
+      await NotificationService.requestPermissions();
+    } catch (_) {
+      // Keep the audit page usable if a platform does not support prompts.
+    } finally {
+      await settingsService.setGridAuditNotificationPermissionAsked(true);
+    }
   }
 
   Future<void> _loadSubmeterData() async {
     final now = DateTime.now();
     final monthYear = DateFormat('yyyy-MM').format(now);
     final billingRepo = BillingRepository();
-    final auditRepo = AuditRepository();
     final settingsService = ref.read(settingsServiceProvider);
 
-    final savedBaseline = settingsService.lastGridReading;
-    final prevAudit = await auditRepo.getLatestAuditBefore(monthYear);
+    final auditDay = settingsService.auditDay;
+    final auditDayBaseline =
+        await billingRepo.sumCurrentReadingsForMonthOnDay(monthYear, auditDay);
+    final monthBaseline = auditDayBaseline > 0
+        ? auditDayBaseline
+        : await billingRepo.sumCurrentReadingsForMonth(monthYear);
     final total = await billingRepo.sumUnitsConsumedForMonth(monthYear);
     final logs = await billingRepo.getLogsForMonth(monthYear);
 
@@ -74,16 +96,16 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
 
     if (mounted) {
       setState(() {
-        if (savedBaseline != null) {
-          _baselineReadingCtrl.text = savedBaseline.toStringAsFixed(0);
-          _baselineLabel = 'Last Saved Reading';
+        if (auditDayBaseline > 0) {
+          _baselineReadingCtrl.text = auditDayBaseline.toStringAsFixed(0);
+          _baselineLabel = 'Rentee Readings on Day $auditDay';
           _showBaselineInput = false;
-        } else if (prevAudit != null) {
-          _baselineReadingCtrl.text = prevAudit.mainGridReading.toStringAsFixed(0);
-          _baselineLabel = 'Previous Audit Reading';
+        } else if (monthBaseline > 0) {
+          _baselineReadingCtrl.text = monthBaseline.toStringAsFixed(0);
+          _baselineLabel = 'Rentee Readings This Month';
           _showBaselineInput = false;
         } else {
-          _baselineLabel = 'Baseline Reading';
+          _baselineLabel = 'Rentee Baseline Missing';
           _showBaselineInput = true;
         }
         _submeterTotal = total;

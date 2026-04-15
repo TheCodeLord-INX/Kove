@@ -299,12 +299,29 @@ class _MonthlyBillingScreenState extends ConsumerState<MonthlyBillingScreen> {
               ],
             ),
           ),
-          if (_previousBalance > 0)
+          if (_previousBalance != 0)
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Text('ARREARS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: KoveColors.danger)),
-                Text(fmt.format(_previousBalance), style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w700, color: KoveColors.danger)),
+                Text(
+                  _previousBalance > 0 ? 'ARREARS' : 'SURPLUS',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    color: _previousBalance > 0
+                        ? KoveColors.danger
+                        : KoveColors.success,
+                  ),
+                ),
+                Text(
+                  fmt.format(_previousBalance.abs()),
+                  style: GoogleFonts.jetBrainsMono(
+                    fontWeight: FontWeight.w700,
+                    color: _previousBalance > 0
+                        ? KoveColors.danger
+                        : KoveColors.success,
+                  ),
+                ),
               ],
             ),
         ],
@@ -680,6 +697,12 @@ class _BillSummaryCard extends StatelessWidget {
                   _SummaryRow(label: 'Water', value: fmt.format(settings.waterCharge)),
                   if (adjustments != 0) _SummaryRow(label: 'Adjustments', value: fmt.format(adjustments)),
                   if (previousBalance > 0) _SummaryRow(label: 'Arrears', value: fmt.format(previousBalance), isRed: true),
+                  if (previousBalance < 0)
+                    _SummaryRow(
+                      label: 'Previous Surplus',
+                      value: '-${fmt.format(previousBalance.abs())}',
+                      isSuccess: true,
+                    ),
                   const Divider(color: Colors.black, thickness: 1.5, height: 32),
                   _SummaryRow(label: 'NET TOTAL', value: fmt.format(totalDue), isBold: true, fontSize: 24),
                   _SummaryRow(label: 'PAID SO FAR', value: fmt.format(amountPaid), isSuccess: true),

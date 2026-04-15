@@ -73,7 +73,9 @@ class TenantProfileScreen extends ConsumerWidget {
       builder: (ctx) {
         DateTime vacatingDate = DateTime.now();
         double moveOutReading = lastReading;
+        double settlementAdjustment = 0;
         final readingController = TextEditingController(text: lastReading.toString());
+        final adjustmentController = TextEditingController();
 
         return StatefulBuilder(
           builder: (context, setState) {
@@ -175,6 +177,41 @@ class TenantProfileScreen extends ConsumerWidget {
                         color: Colors.grey,
                       ),
                     ),
+                    const SizedBox(height: 20),
+
+                    Text(
+                      'Settlement Adjustment',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: adjustmentController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                      onChanged: (val) {
+                        setState(() {
+                          settlementAdjustment = double.tryParse(val) ?? 0;
+                        });
+                      },
+                      style: TextStyle(color: highContrastText, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.tune_rounded),
+                        prefixText: '\u20B9 ',
+                        hintText: 'Use negative for credit',
+                        filled: true,
+                        fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.02),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
+                        ),
+                      ),
+                    ),
                     const Divider(height: 48),
 
                     // 3. Live Breakdown
@@ -190,6 +227,7 @@ class TenantProfileScreen extends ConsumerWidget {
                       highContrastText,
                       lastBilledDate,
                       paymentsThisCycle,
+                      settlementAdjustment,
                     ),
                   ],
                 ),
@@ -217,9 +255,12 @@ class TenantProfileScreen extends ConsumerWidget {
                     final rentCharge = result['monthly_rent_charge'] as double;
                     final extraRent = result['pro_rata_extra'] as double;
                     final elecBill = result['electricity_bill'] as double;
+                    final finalAdjustment =
+                        double.tryParse(adjustmentController.text) ?? settlementAdjustment;
                     
-                    // Total Due = Legacy + Current Rent + Pro-rata + Electricity
-                    final totalDue = unpaidBalances + rentCharge + extraRent + elecBill;
+                    // Total Due = Legacy + Current Rent + Pro-rata + Electricity + Adjustment
+                    final totalDue =
+                        unpaidBalances + rentCharge + extraRent + elecBill + finalAdjustment;
                     // Final = Total Due - Payments Already Made - Advance
                     final finalSettlement = totalDue - paymentsThisCycle - tenant.advancePaid;
 
@@ -232,7 +273,7 @@ class TenantProfileScreen extends ConsumerWidget {
                       unitsConsumed: result['electricity_units'],
                       totalElectricityBill: elecBill,
                       rentAmount: rentCharge + extraRent,
-                      adjustments: 0,
+                      adjustments: finalAdjustment,
                       totalDue: totalDue - paymentsThisCycle, // Net due past payments
                       amountPaid: tenant.advancePaid,
                       balanceCarriedForward: finalSettlement,
@@ -286,6 +327,7 @@ class TenantProfileScreen extends ConsumerWidget {
     Color highContrastText,
     DateTime lastBilledDate,
     double paymentsThisCycle,
+    double settlementAdjustment,
   ) {
     final result = BillingEngine.calculateSettlement(
       moveInDateStr: tenant.moveInDate,
@@ -306,8 +348,9 @@ class TenantProfileScreen extends ConsumerWidget {
     final extraDays = result['extra_days'] as int;
     final totalMonths = result['total_months'] as int;
 
-    // Strict Sequence: Total Due = (Final Month Rent) + Extras + Electricity + Unpaid
-    final totalDueBeforeCredits = monthlyRentCharge + proRataExtra + elecBill + unpaidBalances;
+    // Strict Sequence: Total Due = Rent + Extras + Electricity + Unpaid + Adjustment
+    final totalDueBeforeCredits =
+        monthlyRentCharge + proRataExtra + elecBill + unpaidBalances + settlementAdjustment;
     final finalSettlement = totalDueBeforeCredits - paymentsThisCycle - advance;
 
     const labelStyle = TextStyle(fontSize: 13, color: Colors.grey);
@@ -332,6 +375,15 @@ class TenantProfileScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         if (unpaidBalances != 0)
           _row(unpaidBalances > 0 ? 'Existing Unpaid Dues' : 'Previous Overpayments', fmt.format(unpaidBalances.abs()), labelStyle, valueStyle),
+        if (settlementAdjustment != 0)
+          _row(
+            settlementAdjustment > 0 ? 'Settlement Adjustment' : 'Settlement Credit',
+            settlementAdjustment > 0
+                ? fmt.format(settlementAdjustment)
+                : '-${fmt.format(settlementAdjustment.abs())}',
+            labelStyle,
+            valueStyle,
+          ),
         
         const Divider(height: 24),
         _row('TOTAL DUE', fmt.format(totalDueBeforeCredits), labelStyle.copyWith(fontWeight: FontWeight.bold, color: highContrastText), valueStyle.copyWith(fontSize: 14)),

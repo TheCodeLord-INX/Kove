@@ -41,6 +41,21 @@ class BillingRepository {
     return results.map(MonthlyLog.fromMap).toList();
   }
 
+  /// Get logs for active tenants in a given month.
+  Future<List<MonthlyLog>> getActiveLogsForMonth(String monthYear) async {
+    final db = await _dbHelper.database;
+    final results = await db.rawQuery(
+      'SELECT l.* '
+      'FROM ${DbConstants.tableMonthlyLogs} l '
+      'INNER JOIN ${DbConstants.tableTenants} t '
+      'ON l.${DbConstants.colTenantId} = t.${DbConstants.colId} '
+      'WHERE l.${DbConstants.colMonthYear} = ? '
+      'AND t.${DbConstants.colActiveStatus} = 1',
+      [monthYear],
+    );
+    return results.map(MonthlyLog.fromMap).toList();
+  }
+
   /// Get all monthly logs across tenants, newest month first.
   Future<List<MonthlyLog>> getAllLogs() async {
     final db = await _dbHelper.database;
@@ -116,5 +131,39 @@ class BillingRepository {
     // ignore: avoid_print
     print('AUDIT: Month $monthYear, Active Submeter Total = $total');
     return total;
+  }
+
+  /// Sum current meter readings recorded on the audit day for active tenants.
+  Future<double> sumCurrentReadingsForMonthOnDay(
+    String monthYear,
+    int day,
+  ) async {
+    final logs = await getActiveLogsForMonth(monthYear);
+    var total = 0.0;
+
+    for (final log in logs) {
+      final recordedAt = log.recordedAt;
+      if (recordedAt == null || recordedAt.isEmpty) continue;
+
+      try {
+        final recordedDate = DateTime.parse(recordedAt);
+        if (recordedDate.day == day && log.currMeterReading > 0) {
+          total += log.currMeterReading;
+        }
+      } catch (_) {
+        // Ignore malformed historic dates and keep the audit baseline safe.
+      }
+    }
+
+    return total;
+  }
+
+  /// Sum current meter readings for active tenants in a month.
+  Future<double> sumCurrentReadingsForMonth(String monthYear) async {
+    final logs = await getActiveLogsForMonth(monthYear);
+    return logs.fold<double>(
+      0,
+      (sum, log) => sum + (log.currMeterReading > 0 ? log.currMeterReading : 0),
+    );
   }
 }

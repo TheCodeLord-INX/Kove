@@ -31,6 +31,26 @@ class NotificationService {
         ?.createNotificationChannel(channel);
   }
 
+  /// Ask for runtime notification permission where the platform requires it.
+  static Future<void> requestPermissions() async {
+    await initialize();
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+  }
+
   /// Push a notification alerting about missing meter readings.
   static Future<void> showAuditReminder(int missingCount) async {
     const androidDetails = AndroidNotificationDetails(
